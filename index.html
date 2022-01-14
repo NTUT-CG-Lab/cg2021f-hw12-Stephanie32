@@ -18,12 +18,12 @@
 <script>
     // 建構子 ScoreOutputer 接受一個字串，該字串為 csv 的檔案名稱
     // 以下面範例，檔名就為 "109598105(總分: 6).csv"
-    var so = new ScoreOutputer("110598045");
+    var so = new ScoreOutputer("110598099");
     so.installCSS(function () {
         so.addChild("透過模型分割出心臟，輸出心臟遮罩圖片", 6, true);
         so.addChild("心臟遮罩圖片轉成nrrd檔案 ", 1, true);
         so.addChild("使用Three.js呈現模型", 1, true);
-        so.addChild("呈現真實(Ground Truth)與預測的模型", 2, false);
+        so.addChild("呈現真實(Ground Truth)與預測的模型", 2, true);
 
         //產生自評表，參數如下所示
         so.renderModal(
@@ -53,10 +53,15 @@
     import {VolumeRenderShader1} from './three/examples/jsm/shaders/VolumeShader.js';
 
     let renderer, scene, camera, controls, material, volconfig, cmtextures;
+    let volconfig_pred;
+    let model_name = 'original';
+    let model_name_pred = 'prediction';
 
     let modelPath = './data/nrrd_data/ID00423637202312137826377_gt_mask.nrrd';
+    let modelPath_pred = './data/nrrd_data/ID00423637202312137826377_mask.nrrd';
 
     volconfig = {clim1: 0, clim2: 1, renderstyle: 'iso', isothreshold: 0.15, colormap: 'red'};
+    volconfig_pred = {clim1: 0, clim2: 1, renderstyle: 'iso', isothreshold: 0.15, colormap: 'orange'};
 
     init();
 
@@ -70,7 +75,10 @@
         createControl();
 
         // Load the data ...
-        loadNRRD(modelPath);
+        // loadNRRD(model檔案位址, model設定, model name)
+        // 會用model name來判斷model position的數值
+        loadNRRD(modelPath, volconfig, model_name);
+        loadNRRD(modelPath_pred, volconfig_pred, model_name_pred);
 
         window.addEventListener('resize', onWindowResize);
     }
@@ -102,7 +110,7 @@
         controls.update();
     }
 
-    function loadNRRD(modelPath) {
+    function loadNRRD(modelPath, volconfig, model_name) {
         new NRRDLoader().load(modelPath, function (volume) {
             const texture = new THREE.DataTexture3D(volume.data, volume.xLength, volume.yLength, volume.zLength);
             texture.format = THREE.RedFormat;
@@ -112,7 +120,8 @@
 
             // Colormap textures
             cmtextures = {
-                red: new THREE.TextureLoader().load('./three/examples/textures/red.png', render)
+                red: new THREE.TextureLoader().load('./three/examples/textures/red.png', render),
+                orange: new THREE.TextureLoader().load('./three/examples/textures/orange.png', render)
             };
 
             // Material
@@ -139,6 +148,15 @@
             geometry.translate(volume.xLength / 2 - 0.5, volume.yLength / 2 - 0.5, volume.zLength / 2 - 0.5);
 
             const mesh = new THREE.Mesh(geometry, material);
+            if (model_name == 'original'){
+                mesh.position.set(0, 0, 0)
+            }
+            else if (model_name == 'prediction'){
+                mesh.position.set(-volume.xLength, 0, 0)
+            }
+            else{
+                mesh.position.set(0, volume.yLength, 0)
+            }
             scene.add(mesh);
 
             render();
